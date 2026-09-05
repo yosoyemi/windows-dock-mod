@@ -1,0 +1,66 @@
+{
+  "name": "Emi Liquid Glass Dock",
+  "version": "1.0.0",
+  "description": "Windows 11 taskbar styled as a floating liquid-glass dock.",
+  "requires": {
+    "os": "Windows 11",
+    "windhawk": "2.0.0-alpha.3"
+  },
+  "mods": {
+    "windows-11-taskbar-styler": {
+      "theme": "LiquidGlass2",
+      "clickThroughTaskbar": "1",
+      "xamlDiagnosticsHandling": "alert"
+    },
+    "taskbar-icon-size": {
+      "TaskbarHeight": "70",
+      "IconSize": "28",
+      "TaskbarButtonWidth": "44",
+      "IconSizeSmall": "16",
+      "TaskbarButtonWidthSmall": "32"
+    },
+    "taskbar-dock-animation-plus": {
+      "AnimationType": "0",
+      "MaxScale": "118",
+      "EffectRadius": "85",
+      "SpacingFactor": "32",
+      "BounceDelay": "700",
+      "FocusDuration": "90",
+      "DisableVerticalBounce": "1",
+      "DisableBounce": "1",
+      "TaskbarLabelsMode": "0",
+      "ExcludeSystemButtonsMode": "2",
+      "LerpSpeed": "55"
+    },
+    "taskbar-auto-hide-speed": {
+      "showSpeedup": "350",
+      "hideSpeedup": "180",
+      "frameRate": "120",
+      "oldTaskbarOnWin11": "0"
+    },
+    "taskbar-auto-hide-when-maximized": {
+      "mode": "intersected",
+      "foregroundWindowOnly": "1",
+      "primaryMonitorOnly": "0",
+      "oldTaskbarOnWin11": "0"
+    },
+    "taskbar-auto-hide-custom-activation-area": {
+      "activationRegion": "24%-76%,84%-100%"
+    },
+    "taskbar-tray-show-on-hover": {
+      "hiddenOpacity": "2",
+      "hideDelay": "300",
+      "fadeDuration": "140"
+    },
+    "taskbar-z-order-override": {
+      "TaskbarZOrder": "top"
+    }
+  },
+  "windows": {
+    "taskbarAlignment": "center",
+    "widgets": false,
+    "taskView": false,
+    "darkMode": true,
+    "autoHide": true
+  }
+}

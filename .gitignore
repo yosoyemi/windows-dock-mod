@@ -1,0 +1,12 @@
+# Generated packages (recreate with scripts/Pack-Release.ps1)
+dist/*.zip
+*.log
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local Windhawk / Windows leftovers
+*.exe
+!scripts/**
+temp/
+.cache/
