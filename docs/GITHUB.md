@@ -2,12 +2,22 @@
 
 La carpeta del proyecto ya está lista para `git`. No incluye Windhawk ni tus apps ancladas.
 
-## 1. Crear el repo
-
-En PowerShell, dentro de esta carpeta:
+## 1. Empaquetar zip + instalador
 
 ```powershell
 cd "C:\Users\maste\OneDrive\Desktop\dev emi\windows-dock-mod"
+.\scripts\Pack-Release.ps1
+```
+
+Quedan en `dist/`:
+
+- `Emi-Windows-Dock-v1.0.1.zip` — para mandar por Drive / Discord / mail
+- `Emi-Windows-Dock-Setup-v1.0.1.exe` — instalador de un clic para el portafolio
+- `Emi-Windows-Dock-v1.0.1.sha256.txt` — checksums
+
+## 2. Crear el repo
+
+```powershell
 git init
 git add .
 git commit -m "Initial Emi Liquid Glass Dock pack"
@@ -30,34 +40,29 @@ git branch -M main
 git push -u origin main
 ```
 
-## 2. Publicar el zip descargable
+## 3. Publicar los archivos descargables
 
 ```powershell
-.\scripts\Pack-Release.ps1
-gh release create v1.0.0 dist\Emi-Windows-Dock-v1.0.0.zip -t "Emi Windows Dock v1.0.0" -n "Preset de dock para Windows 11. Descomprimí y ejecutá INSTALAR.bat."
+gh release create v1.0.1 dist\Emi-Windows-Dock-v1.0.1.zip dist\Emi-Windows-Dock-Setup-v1.0.1.exe -t "Emi Windows Dock v1.0.1" -n "Descomprimí el zip y ejecutá INSTALAR.bat, o usá el Setup.exe."
 ```
 
-Ese archivo de **Releases** es el que mandás a tus amigos. El botón Download del repo sirve, pero el zip de Releases es más simple para gente que no usa git.
+Enlaces directos:
 
-## 3. Enlace directo para amigos
-
-Cuando exista el release:
-
-`https://github.com/TU_USUARIO/windows-dock-mod/releases/latest/download/Emi-Windows-Dock-v1.0.0.zip`
-
-También podés subir el mismo zip a Google Drive / Discord.
+- Zip: `https://github.com/TU_USUARIO/windows-dock-mod/releases/latest/download/Emi-Windows-Dock-v1.0.1.zip`
+- Setup: `https://github.com/TU_USUARIO/windows-dock-mod/releases/latest/download/Emi-Windows-Dock-Setup-v1.0.1.exe`
 
 ## 4. Portafolio
 
 En tu sitio, enlazá:
 
-- Repo: `https://github.com/TU_USUARIO/windows-dock-mod`
+- **Download (instalador):** el `.exe`
+- **Download (zip):** el `.zip`
 - Preview: `screenshots/dock.png`
-- Stack: Windows 11 · Windhawk · PowerShell
+- Stack: Windows 11 · Windhawk · Windows 10 (TaskbarX) · PowerShell
+
+Mandá el zip a amigos. El exe es más cómodo en una landing, pero SmartScreen puede avisarlo por no estar firmado.
 
 ## Actualizar el preset
-
-Si cambiás el dock en tu PC:
 
 ```powershell
 .\scripts\Export-EmiDock.ps1
@@ -65,7 +70,4 @@ Si cambiás el dock en tu PC:
 git add dist\emi-windows-dock.whdata presets
 git commit -m "Update dock preset"
 git push
-gh release create v1.0.1 dist\Emi-Windows-Dock-v1.0.1.zip
 ```
-
-(Renombrá la versión en `Pack-Release.ps1` cuando subas un release nuevo.)

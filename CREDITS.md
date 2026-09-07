@@ -22,6 +22,11 @@ This dock preset is a configuration pack. It does not replace the original tools
 
 Theme base: **LiquidGlass2** from [Windows 11 Taskbar Styling Guide](https://github.com/ramensoftware/windows-11-taskbar-styling-guide).
 
+## Windows 10 fallback
+
+- Native glass helper `EmiDockGlass` (this pack): acrylic/blur on the classic taskbar, rounded floating bar, icons stay opaque.
+- [TaskbarX](https://github.com/ChrisAnd1998/TaskbarX) by [Chris Andriessen](https://github.com/ChrisAnd1998) (portable 1.7.8.0): centers the icons. It does **not** paint the dark overlay.
+
 ## This pack
 
 Preset, Windows tweaks, installer, and docs: Emiliano.

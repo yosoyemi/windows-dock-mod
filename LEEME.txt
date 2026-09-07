@@ -1,0 +1,38 @@
+EMI LIQUID GLASS DOCK
+=====================
+
+Como instalar (amigos / portafolio)
+-----------------------------------
+1. Extrae este ZIP completo. No abras INSTALAR.bat desde dentro del zip.
+2. Entra a la carpeta extraida.
+3. Doble clic en INSTALAR.bat
+4. Si Windows dice "Windows protegio tu PC":
+     Mas informacion  ->  Ejecutar de todas formas
+5. Espera. La primera vez descarga Windhawk (hace falta internet).
+6. Windows 11: pasa el mouse por el CENTRO de la parte inferior.
+   Windows 10: barra de vidrio flotante, iconos centrados y visibles.
+
+No pide administrador.
+No cambia tus apps ancladas.
+
+Requisitos
+----------
+- Windows 11 (look Liquid Glass completo) o Windows 10 2004+
+- Internet solo la primera vez
+  Windows 11 descarga Windhawk.
+  Windows 10 descarga TaskbarX (dock centrado compatible).
+
+Como quitar
+-----------
+Doble clic en DESINSTALAR.bat
+
+Si algo falla
+-------------
+Abre %TEMP%\emi-dock-install.log y lee el error.
+Reinicia explorer o cierra sesion si el dock no aparece.
+Windhawk tiene que quedar en la bandeja del sistema.
+
+Archivos para enviar
+--------------------
+- Emi-Windows-Dock-v1.0.1.zip          (este paquete)
+- Emi-Windows-Dock-Setup-v1.0.1.exe    (instalador de un clic, en dist/)

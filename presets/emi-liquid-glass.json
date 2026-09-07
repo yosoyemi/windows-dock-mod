@@ -1,9 +1,9 @@
 {
   "name": "Emi Liquid Glass Dock",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Windows 11 taskbar styled as a floating liquid-glass dock.",
   "requires": {
-    "os": "Windows 11",
+    "os": "Windows 11 (full) / Windows 10 2004+ (TaskbarX fallback)",
     "windhawk": "2.0.0-alpha.3"
   },
   "mods": {

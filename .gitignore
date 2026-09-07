@@ -1,5 +1,7 @@
 # Generated packages (recreate with scripts/Pack-Release.ps1)
 dist/*.zip
+dist/*.exe
+dist/*.sha256.txt
 *.log
 Thumbs.db
 Desktop.ini
@@ -10,3 +12,8 @@ Desktop.ini
 !scripts/**
 temp/
 .cache/
+
+# Setup build
+setup/**/bin/
+setup/**/obj/
+setup/**/payload.zip
