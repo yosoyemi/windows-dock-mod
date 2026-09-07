@@ -30,7 +30,7 @@ This repo is a **shareable preset**, not a closed app. Friends download a zip, e
 4. If SmartScreen appears: **More info → Run anyway**.
 5. Hover the **center** of the bottom edge. The dock slides up.
 
-**Installer (portfolio):** download **`Emi-Windows-Dock-Setup-v1.0.1.exe`** and click Instalar.
+**Installer (portfolio):** download **`Emi-Windows-Dock-Setup-v1.0.1.exe`** and press Enter to install.
 
 Spanish steps: `LEEME.txt` and [docs/INSTALACION.md](docs/INSTALACION.md).
 
@@ -75,7 +75,7 @@ windows-dock-mod/
     Uninstall-EmiDock.ps1
     Pack-Release.ps1           # builds zip + Setup.exe
     Export-EmiDock.ps1         # refresh preset from this PC
-  setup/EmiDockSetup/          # WinForms installer source
+  setup/EmiDockSetup/          # Console installer source
   docs/
 ```
 

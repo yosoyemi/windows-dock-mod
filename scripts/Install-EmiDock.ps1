@@ -27,6 +27,7 @@ $RegPath = Join-Path $ProjectRoot "registry\dock-windows-settings.reg"
 $LogPath = Join-Path $env:TEMP "emi-dock-install.log"
 $StateDir = Join-Path $env:LOCALAPPDATA "EmiWindowsDock"
 $StatePath = Join-Path $StateDir "state.json"
+$DownloadDir = Join-Path $StateDir "downloads"
 
 $WindhawkRelease = "2.0.0-alpha.3"
 $WindhawkUrl = "https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.3/windhawk_setup.exe"
@@ -234,38 +235,52 @@ function Get-FileDownload {
         [string]$ExpectedSha256 = "",
         [int]$MinBytes = 100000
     )
+    $OutFile = [IO.Path]::GetFullPath($OutFile)
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutFile) | Out-Null
+    # Only a matching pinned hash allows reuse, including when offline.
+    if ($ExpectedSha256 -and (Test-Path -LiteralPath $OutFile -PathType Leaf)) {
+        if ((Get-Item -LiteralPath $OutFile).Length -ge $MinBytes -and
+            (Get-FileHash -LiteralPath $OutFile -Algorithm SHA256).Hash -eq $ExpectedSha256) {
+            Write-Log "Usando descarga verificada: $([IO.Path]::GetFileName($OutFile))" DarkGray
+            return
+        }
+    }
+    $partial = "$OutFile.$([guid]::NewGuid().ToString('N')).partial"
     $attempts = 3
+    $lastError = ""
     for ($i = 1; $i -le $attempts; $i++) {
         try {
             Write-Log "Descarga intento $i de $attempts..." DarkGray
-            if (Test-Path $OutFile) { Remove-Item $OutFile -Force }
-            Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -TimeoutSec 120
-            if ((Get-Item $OutFile).Length -le $MinBytes) {
-                throw "El archivo descargado es demasiado chico."
+            Invoke-WebRequest -Uri $Url -OutFile $partial -UseBasicParsing -TimeoutSec 600 -UserAgent "EmiWindowsDock/1.0.1" -ErrorAction Stop
+            if ((Get-Item -LiteralPath $partial).Length -lt $MinBytes) {
+                throw "El archivo descargado esta incompleto o vacio."
             }
             if ($ExpectedSha256) {
-                $hash = (Get-FileHash -Path $OutFile -Algorithm SHA256).Hash
+                $hash = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash
                 if ($hash -ne $ExpectedSha256) {
-                    throw "HASH_MISMATCH $hash"
+                    throw "SHA256 incorrecto. Esperado: $ExpectedSha256. Obtenido: $hash."
                 }
             }
+            Move-Item -LiteralPath $partial -Destination $OutFile -Force
+            Write-Log "Descarga completa y verificada." Green
             return
         } catch {
-            $msg = $_.Exception.Message
-            if ($msg -like "HASH_MISMATCH *") {
-                $got = $msg.Substring(14)
-                throw "El archivo descargado no coincide con el hash esperado.`nEsperado $ExpectedSha256`nObtenido $got`n$Url"
+            $lastError = $_.Exception.Message
+            Write-Log "Fallo la descarga: $lastError" Yellow
+            if ($i -lt $attempts) {
+                Write-Log "Reintentando en $(2 * $i) segundos..." DarkGray
+                Start-Sleep -Seconds (2 * $i)
             }
-            Write-Log "Fallo la descarga: $msg" Yellow
-            Start-Sleep -Seconds (2 * $i)
+        } finally {
+            if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
         }
     }
-    throw "No se pudo descargar el archivo. Revisa internet y vuelve a intentar.`n$Url"
+    throw "No se pudo descargar el archivo despues de $attempts intentos. Revisa internet, proxy o firewall y vuelve a intentar.`nDetalle: $lastError`n$Url"
 }
 
 function Install-Windhawk {
     Write-Step "Descargando Windhawk $WindhawkRelease"
-    $setup = Join-Path $env:TEMP "windhawk_setup_emi_dock.exe"
+    $setup = Join-Path $DownloadDir "windhawk-$WindhawkRelease.exe"
     Get-FileDownload -Url $WindhawkUrl -OutFile $setup -ExpectedSha256 $WindhawkSha256
     Unblock-File -Path $setup -ErrorAction SilentlyContinue
 
@@ -300,7 +315,7 @@ function Ensure-WindhawkRunning {
     $running = Get-Process -Name "windhawk" -ErrorAction SilentlyContinue
     if (-not $running -and (Test-Path $exe)) {
         Write-Step "Iniciando Windhawk"
-        Start-Process -FilePath $exe -ArgumentList "-tray-only" | Out-Null
+        Start-Process -FilePath $exe -ArgumentList "-tray-only" -WindowStyle Hidden | Out-Null
     }
 
     $deadline = (Get-Date).AddSeconds(40)
@@ -337,7 +352,8 @@ function Enable-DockMods {
 
     Write-Step "Activando mods del dock"
     foreach ($id in $RequiredMods) {
-        $null = Invoke-WindhawkCli -CliPath $CliPath -CliArgs @("--yes", "mod", "enable", $id)
+        $code = Invoke-WindhawkCli -CliPath $CliPath -CliArgs @("--yes", "mod", "enable", $id)
+        if ($code -ne 0) { throw "No se pudo activar $id (codigo $code)." }
     }
 }
 
@@ -468,6 +484,7 @@ function New-StartupShortcut {
         [string]$WorkDir = ""
     )
     $ws = New-Object -ComObject WScript.Shell
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LinkPath) | Out-Null
     $sc = $ws.CreateShortcut($LinkPath)
     $sc.TargetPath = $TargetPath
     $sc.Arguments = $Arguments
@@ -523,7 +540,7 @@ function Compile-EmiDockGlass {
 
 function Start-EmiDockGlass {
     Stop-EmiDockGlass
-    Start-Process -FilePath $GlassExePath | Out-Null
+    Start-Process -FilePath $GlassExePath -WindowStyle Hidden | Out-Null
     New-StartupShortcut -LinkPath $GlassStartupLnk -TargetPath $GlassExePath -WorkDir $EmiDockRoot
 }
 
@@ -532,30 +549,51 @@ function Install-TaskbarX {
     $asset = switch ($arch) {
         "ARM64" { "TaskbarX_$TaskbarXVersion`_arm64.zip" }
         "x86"   { "TaskbarX_$TaskbarXVersion`_x86.zip" }
-        default { "TaskbarX_$TaskbarXVersion`_x64.zip" }
+        "AMD64" { "TaskbarX_$TaskbarXVersion`_x64.zip" }
+        default { throw "Arquitectura no compatible con TaskbarX: $arch" }
     }
     $url = "https://github.com/ChrisAnd1998/TaskbarX/releases/download/$TaskbarXVersion/$asset"
-    $expected = ""
-    if ($asset -eq "TaskbarX_$TaskbarXVersion`_x64.zip") { $expected = $TaskbarXSha256X64 }
+    $expected = switch ($arch) {
+        "AMD64" { $TaskbarXSha256X64 }
+        "x86" { "5B7BFCBEF460C6842F7A75DBDC977AE3C3504EB9B95F1F6FA934974BEC806E78" }
+        "ARM64" { "14D4FE288A26CBD6EC02560D7CF5E9EB72DD5790F5E4F9FA4A1A712B98FF8EB9" }
+    }
 
     Write-Step "Descargando TaskbarX $TaskbarXVersion ($arch)"
-    $zip = Join-Path $env:TEMP "taskbarx_emi_dock.zip"
+    $zip = Join-Path $DownloadDir $asset
     Get-FileDownload -Url $url -OutFile $zip -ExpectedSha256 $expected -MinBytes 500000
     Unblock-File -Path $zip -ErrorAction SilentlyContinue
 
     Write-Step "Instalando TaskbarX (portable, sin administrador)"
-    Stop-TaskbarX
-    if (Test-Path $TaskbarXDir) { Remove-Item $TaskbarXDir -Recurse -Force }
-    New-Item -ItemType Directory -Force -Path $TaskbarXDir | Out-Null
-    Expand-Archive -Path $zip -DestinationPath $TaskbarXDir -Force
-
-    $exe = Join-Path $TaskbarXDir "TaskbarX.exe"
-    if (-not (Test-Path $exe)) {
-        $found = Get-ChildItem -Path $TaskbarXDir -Recurse -Filter "TaskbarX.exe" | Select-Object -First 1
-        if ($found) { $exe = $found.FullName }
-    }
-    if (-not (Test-Path $exe)) {
-        throw "TaskbarX se descargo pero no aparece TaskbarX.exe."
+    $staging = Join-Path $EmiDockRoot ("TaskbarX-stage-" + [guid]::NewGuid().ToString('N'))
+    $backup = "$staging-previous"
+    $promoted = $false
+    try {
+        Expand-Archive -LiteralPath $zip -DestinationPath $staging
+        $found = Get-ChildItem -LiteralPath $staging -Recurse -Filter "TaskbarX.exe" | Select-Object -First 1
+        if (-not $found) { throw "El ZIP de TaskbarX no contiene TaskbarX.exe." }
+        $relativeExe = $found.FullName.Substring($staging.Length + 1)
+        Stop-TaskbarX
+        if (Test-Path -LiteralPath $TaskbarXDir) { Move-Item -LiteralPath $TaskbarXDir -Destination $backup }
+        try {
+            Move-Item -LiteralPath $staging -Destination $TaskbarXDir
+            $promoted = $true
+        } catch {
+            if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $TaskbarXDir }
+            throw
+        }
+        $exe = Join-Path $TaskbarXDir $relativeExe
+    } finally {
+        $cleanup = @($staging)
+        if ($promoted) { $cleanup += $backup }
+        foreach ($candidate in $cleanup) {
+            $resolved = [IO.Path]::GetFullPath($candidate)
+            $allowedRoot = [IO.Path]::GetFullPath($EmiDockRoot).TrimEnd('\') + '\'
+            if (-not $resolved.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Ruta temporal fuera del directorio de EmiDock."
+            }
+            if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue }
+        }
     }
     Unblock-File -Path $exe -ErrorAction SilentlyContinue
     return $exe
@@ -570,7 +608,7 @@ function Start-TaskbarXDock {
     Write-Step "Centrando iconos (TaskbarX)"
     Stop-TaskbarX
     Start-Sleep -Milliseconds 400
-    Start-Process -FilePath $ExePath -ArgumentList (Format-ProcessArgs $Args) | Out-Null
+    Start-Process -FilePath $ExePath -ArgumentList (Format-ProcessArgs $Args) -WindowStyle Hidden | Out-Null
     New-StartupShortcut -LinkPath $StartupLnk -TargetPath $ExePath -Arguments ($Args -join " ") -WorkDir (Split-Path -Parent $ExePath)
     Write-Log "Inicio automatico: $StartupLnk" DarkGray
 }
@@ -596,6 +634,7 @@ function Install-Win11Dock {
 function Install-Win10Dock {
     Write-Log "Windows 10 usa su propia barra. Se aplica vidrio esmerilado + iconos centrados y visibles." Cyan
     $tbx = Install-TaskbarX
+    if (-not $SkipWindowsTweaks) { Apply-Windows10Tweaks }
     $glassOk = $false
     $tbxArgs = $TaskbarXFallbackArgs
     try {
@@ -644,7 +683,6 @@ try {
         Write-Host ""
         Write-Log "Listo. Pasa el mouse por el centro inferior de la pantalla." Green
     } else {
-        if (-not $SkipWindowsTweaks) { Apply-Windows10Tweaks }
         Install-Win10Dock
         Save-InstallState -Kind "win10-glass" -Build $os.Build
         Write-Host ""

@@ -24,7 +24,12 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function New-CleanDir([string]$Path) {
-    if (Test-Path $Path) { Remove-Item $Path -Recurse -Force }
+    $resolved = [IO.Path]::GetFullPath($Path)
+    $allowed = [IO.Path]::GetFullPath($stage).TrimEnd('\')
+    if ($resolved -ne $allowed -and -not $resolved.StartsWith($allowed + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Ruta fuera del directorio temporal de empaquetado: $resolved"
+    }
+    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $Path | Out-Null
 }
 
@@ -57,6 +62,7 @@ function Copy-IntoPack([string]$Stage) {
     Copy-Item (Join-Path $root "scripts\Install-EmiDock.ps1") $scripts -Force
     Copy-Item (Join-Path $root "scripts\Uninstall-EmiDock.ps1") $scripts -Force
     Copy-Item (Join-Path $root "scripts\EmiDockGlass.cs") $scripts -Force
+    Copy-Item (Join-Path $root "scripts\Test-Downloads.ps1") $scripts -Force
 }
 
 function Write-ZipFromFolder([string]$SourceFolder, [string]$DestinationZip) {
@@ -74,7 +80,7 @@ if (-not (Test-Path $whdata)) {
     throw "Falta dist\emi-windows-dock.whdata. Exportalo antes con scripts\Export-EmiDock.ps1"
 }
 
-$stage = Join-Path $env:TEMP "emi-windows-dock-pack"
+$stage = Join-Path $env:TEMP ("emi-windows-dock-pack-" + [guid]::NewGuid().ToString('N'))
 New-CleanDir $stage
 $inner = Join-Path $stage $folderName
 New-CleanDir $inner
@@ -107,20 +113,16 @@ $csproj = Join-Path $root "setup\EmiDockSetup\EmiDockSetup.csproj"
 if (-not (Test-Path $csproj)) { throw "Falta $csproj" }
 
 Write-Host "Compilando instalador EXE (Native AOT)..." -ForegroundColor Cyan
-$binRoot = Join-Path $root "setup\EmiDockSetup\bin"
-if (Test-Path $binRoot) { Remove-Item $binRoot -Recurse -Force }
-dotnet publish $csproj -c Release -r win-x64 --self-contained true -p:PublishAot=true
+$publishDir = Join-Path $stage "publish"
+dotnet publish $csproj -c Release -r win-x64 --self-contained true -p:PublishAot=true -o $publishDir
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish fallo. El ZIP ya esta listo en $zipPath"
 }
 
-$built = Get-ChildItem -Path $binRoot -Recurse -Filter "Emi-Windows-Dock-Setup.exe" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-if (-not $built) {
+$built = Join-Path $publishDir "Emi-Windows-Dock-Setup.exe"
+if (-not (Test-Path -LiteralPath $built)) {
     throw "No aparecio Emi-Windows-Dock-Setup.exe despues de publicar"
 }
-$built = $built.FullName
 
 Copy-Item $built $exePath -Force
 $exeMb = [math]::Round((Get-Item $exePath).Length / 1MB, 2)

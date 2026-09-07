@@ -4,20 +4,30 @@ using System.Reflection;
 
 namespace EmiDockSetup;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static class Program
 {
     private const string Version = "1.0.1";
 
     private static int Main()
     {
-        Console.Title = "Emi Liquid Glass Dock";
         try
         {
+            Console.Title = "Emi Liquid Glass Dock";
             Console.OutputEncoding = System.Text.Encoding.UTF8;
         }
         catch { }
 
         WriteBanner();
+        using var installMutex = new Mutex(false, @"Local\EmiWindowsDockSetup");
+        bool acquired;
+        try { acquired = installMutex.WaitOne(0); }
+        catch (AbandonedMutexException) { acquired = true; }
+        if (!acquired)
+        {
+            Fail("Ya hay otro instalador abierto. Cierra esa ventana antes de continuar.");
+            return 1;
+        }
 
         if (GetWindowsBuild() < 19041)
         {
@@ -45,9 +55,11 @@ internal static class Program
 
             var psi = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
+                FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    @"WindowsPowerShell\v1.0\powershell.exe"),
                 Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"",
-                UseShellExecute = false
+                UseShellExecute = false,
+                WorkingDirectory = packDir
             };
 
             using var process = Process.Start(psi);
@@ -65,7 +77,8 @@ internal static class Program
 
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Listo. Pasa el mouse por el centro inferior de la pantalla.");
+            Console.WriteLine("Instalacion completada.");
+            Console.WriteLine("Para quitar el dock: " + Path.Combine(packDir, "DESINSTALAR.bat"));
             Console.ResetColor();
             Pause();
             return 0;
@@ -102,7 +115,8 @@ internal static class Program
         Console.ResetColor();
         Console.WriteLine();
         Console.WriteLine("  No pide administrador.");
-        Console.WriteLine("  Internet solo la primera vez (descarga Windhawk).");
+        Console.WriteLine("  Descarga Windhawk en Windows 11 o TaskbarX en Windows 10.");
+        Console.WriteLine("  Las descargas verificadas se guardan para futuros intentos.");
         Console.WriteLine();
     }
 
@@ -112,14 +126,38 @@ internal static class Program
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EmiWindowsDock",
             "pack");
-        if (Directory.Exists(dest))
-            Directory.Delete(dest, true);
-        Directory.CreateDirectory(dest);
-
+        var staging = dest + "-" + Guid.NewGuid().ToString("N");
+        var backup = staging + "-previous";
+        var promoted = false;
         using var stream = OpenPayload();
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
-        zip.ExtractToDirectory(dest);
-        return dest;
+        try
+        {
+            zip.ExtractToDirectory(staging);
+            foreach (var required in new[] { @"scripts\Install-EmiDock.ps1", @"scripts\Uninstall-EmiDock.ps1",
+                @"dist\emi-windows-dock.whdata", "INSTALAR.bat", "DESINSTALAR.bat" })
+            {
+                if (!File.Exists(Path.Combine(staging, required)))
+                    throw new InvalidDataException("El paquete esta incompleto: " + required);
+            }
+            if (Directory.Exists(dest)) Directory.Move(dest, backup);
+            try { Directory.Move(staging, dest); promoted = true; }
+            catch
+            {
+                if (Directory.Exists(backup)) Directory.Move(backup, dest);
+                throw;
+            }
+            return dest;
+        }
+        finally
+        {
+            // A cleanup failure must not mask installation errors or a successful extraction.
+            foreach (var temporary in promoted ? new[] { staging, backup } : new[] { staging })
+            {
+                try { if (Directory.Exists(temporary)) Directory.Delete(temporary, true); }
+                catch { }
+            }
+        }
     }
 
     private static Stream OpenPayload()

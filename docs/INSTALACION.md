@@ -17,7 +17,7 @@ No pide administrador. Windhawk (Win11) queda en `%LOCALAPPDATA%\Programs\Windha
 
 1. Bajá **Emi-Windows-Dock-Setup-v1.0.1.exe**.
 2. Doble clic. Si SmartScreen aparece: **Más información → Ejecutar de todas formas**.
-3. Tocá **Instalar** y esperá.
+3. Presiona **Enter** para instalar y espera.
 
 El EXE extrae el mismo paquete y corre el mismo instalador.
 
@@ -60,3 +60,17 @@ Doble clic en `DESINSTALAR.bat`, o:
 | Windows 10 (build 19045, etc.) | Dock de vidrio esmerilado (acrylic) + iconos centrados. La barra queda flotante y visible. El Liquid Glass XAML completo sigue siendo solo Windows 11. |
 | Dock negro / no se ven iconos (Win10) | Actualizá el pack. La versión vieja pintaba un overlay oscuro. DESINSTALAR.bat y volvé a instalar. |
 | “Este dock es para Windows 11” | Actualizá el pack. Las versiones viejas cortaban en Windows 10. |
+
+## Descargas y reintentos
+
+Las dependencias se descargan desde sus releases oficiales y se verifican con SHA256 antes de usarlas. El instalador hace hasta tres intentos; si una descarga se interrumpe o llega corrupta, elimina el archivo parcial y vuelve a intentarlo. Las descargas verificadas se guardan en `%LOCALAPPDATA%\EmiWindowsDock\downloads` y se reutilizan en instalaciones posteriores, incluso sin conexión. Windhawk puede necesitar internet adicional para sus componentes o mods.
+
+Si los tres intentos fallan, revisa la conexión y el acceso a GitHub desde tu proxy o firewall. El detalle queda en `%TEMP%\emi-dock-install.log`. Un error de SHA256 no debe ignorarse: vuelve a descargar desde la fuente oficial.
+
+El EXE conserva el paquete anterior hasta que termina de extraer y validar el nuevo. Al terminar muestra la ubicación de `DESINSTALAR.bat`. TaskbarX también valida el contenido del ZIP antes de reemplazar la instalación anterior.
+
+Para verificar el flujo de descargas sin instalar ni modificar la barra:
+
+```powershell
+.\scripts\Test-Downloads.ps1
+```
